@@ -6,25 +6,38 @@ import pandas as pd
 from sklearn.ensemble import RandomForestClassifier
 from sklearn.model_selection import train_test_split
 from sklearn.metrics import mean_squared_error
+from sklearn.linear_model import LogisticRegression
 from sklearn.decomposition import PCA
 from sklearn.metrics import accuracy_score
 import math
 
 items1 = ["Molecular Weight", "Targets", "Bioactivities", "AlogP", "Polar Surface Area", "HBA", "HBD",
                             "#RO5 Violations", "#Rotatable Bonds", "QED Weighted", "CX Acidic pKa", "CX Basic pKa",
-                            "CX LogP", "CX LogD", "Aromatic Rings", "Heavy Atoms", "Molecular Species"]
+                            "CX LogP", "CX LogD", "Aromatic Rings", "Heavy Atoms"]
 items2 = ["Molecular Weight", "Targets", "Bioactivities", "AlogP", "Polar Surface Area", "HBA", "HBD",
                             "#RO5 Violations", "#Rotatable Bonds", "QED Weighted",
-                            "CX LogP", "CX LogD", "Aromatic Rings", "Heavy Atoms", "Molecular Species"]
+                            "CX LogP", "CX LogD", "Aromatic Rings", "Heavy Atoms"]
+
+data_X = None
+data_y = None
+train_X = None
+train_y = None
+valid_X = None
+valid_y = None
+test_X = None
+test_y = None
+
 def load_data(it):
+    global data_X, data_y
     if it:
         ite = items1
     else:
         ite = items2
     dfx = pd.read_csv('drugdata.csv', delimiter=";")
+    dfy = dfx["Molecular Species"]
     dfx = dfx.filter(items=ite)
     dfx = dfx.mask(dfx.eq("None")).dropna()
-    dfy = dfx["Molecular Species"]
+
     dfx = dfx.filter(items=ite)
     print(dfx)
     y_data = []
@@ -39,12 +52,21 @@ def load_data(it):
             y_data.append(3)
         else:
             y_data.append(-1)
-    return dfx.values[:250000], y_data[:250000]
 
-data_X, data_y = load_data()
-tv_X, test_X, tv_y, test_y = train_test_split(data_X, data_y, test_size=0.15)
-train_X, valid_X, train_y, valid_y = train_test_split(tv_X, tv_y, test_size=0.2)
+    print(y_data)
+    data_X = dfx.values[:250000]
+    data_y = y_data[:250000]
 
+
+
+def set_params():
+    global test_X, test_y, train_y, train_X, valid_X, valid_y
+    tv_X, test_X, tv_y, test_y = train_test_split(data_X, data_y, test_size=0.15)
+    train_X, valid_X, train_y, valid_y = train_test_split(tv_X, tv_y, test_size=0.2)
+
+def logistic_features():
+    lr = LogisticRegression(random_state=0).fit(train_X, train_y)
+    return mean_squared_error(test_y, lr.predict(test_X))
 
 
 
@@ -69,9 +91,21 @@ def get_best_rfc():
     test_error = mean_squared_error(test_y, best_rfc.predict(test_X))
     return best_rfc, test_error
 
-rfc, error = get_best_rfc()
 
-print(error)
-print(rfc.feature_importances_)
-print(pca_features())
+
+def run(control):
+    load_data(control)
+    set_params()
+    print(control)
+    print("_________")
+    print(logistic_features())
+    rfc, error = get_best_rfc()
+    print(error)
+    print(rfc.feature_importances_)
+    print("_________")
+
+run(True)
+run(False)
+
+
 
