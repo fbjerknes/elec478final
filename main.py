@@ -7,16 +7,19 @@ from sklearn.ensemble import RandomForestClassifier
 from sklearn.model_selection import train_test_split
 from sklearn.metrics import mean_squared_error
 from sklearn.linear_model import LogisticRegression
+from sklearn.metrics import accuracy_score
 from sklearn.decomposition import PCA
 from sklearn.metrics import accuracy_score
+from sklearn.naive_bayes import GaussianNB, BernoulliNB, MultinomialNB
+import matplotlib.pyplot as plt
 import math
 
 items1 = ["Molecular Weight", "Targets", "Bioactivities", "AlogP", "Polar Surface Area", "HBA", "HBD",
                             "#RO5 Violations", "#Rotatable Bonds", "QED Weighted", "CX Acidic pKa", "CX Basic pKa",
-                            "CX LogP", "CX LogD", "Aromatic Rings", "Heavy Atoms"]
+                            "CX LogP", "CX LogD", "Aromatic Rings", "Heavy Atoms", "Molecular Species"]
 items2 = ["Molecular Weight", "Targets", "Bioactivities", "AlogP", "Polar Surface Area", "HBA", "HBD",
                             "#RO5 Violations", "#Rotatable Bonds", "QED Weighted",
-                            "CX LogP", "CX LogD", "Aromatic Rings", "Heavy Atoms"]
+                            "CX LogP", "CX LogD", "Aromatic Rings", "Heavy Atoms", "Molecular Species"]
 
 data_X = None
 data_y = None
@@ -34,12 +37,11 @@ def load_data(it):
     else:
         ite = items2
     dfx = pd.read_csv('drugdata.csv', delimiter=";")
-    dfy = dfx["Molecular Species"]
     dfx = dfx.filter(items=ite)
     dfx = dfx.mask(dfx.eq("None")).dropna()
-
+    dfy = dfx["Molecular Species"]
+    ite.remove("Molecular Species")
     dfx = dfx.filter(items=ite)
-    print(dfx)
     y_data = []
     for row in dfy:
         if row == "NEUTRAL":
@@ -53,9 +55,8 @@ def load_data(it):
         else:
             y_data.append(-1)
 
-    print(y_data)
-    data_X = dfx.values[:250000]
-    data_y = y_data[:250000]
+    data_X = dfx.values
+    data_y = y_data
 
 
 
@@ -66,8 +67,13 @@ def set_params():
 
 def logistic_features():
     lr = LogisticRegression(random_state=0).fit(train_X, train_y)
-    return mean_squared_error(test_y, lr.predict(test_X))
+    return accuracy_score(test_y, lr.predict(test_X)),
 
+def naive_bayes_features():
+    nb1 = GaussianNB().fit(train_X, train_y)
+    nb2 = BernoulliNB().fit(train_X, train_y)
+    # nb3 = MultinomialNB().fit(train_X, train_y)
+    return accuracy_score(test_y, nb1.predict(test_X)), accuracy_score(test_y, nb2.predict(test_X))
 
 
 def get_best_rfc():
@@ -87,21 +93,40 @@ def get_best_rfc():
                 if valid_error < min_valid_error:
                     min_valid_error = valid_error
                     best_rfc = rfc
-                print(size)
-    test_error = mean_squared_error(test_y, best_rfc.predict(test_X))
+    test_error = accuracy_score(test_y, best_rfc.predict(test_X))
     return best_rfc, test_error
 
 
 
 def run(control):
+    if (control):
+        i = items1
+        st = "Control"
+    else:
+        i = items2
+        st = "Experiment"
     load_data(control)
     set_params()
     print(control)
     print("_________")
-    print(logistic_features())
-    rfc, error = get_best_rfc()
-    print(error)
+    lscore = logistic_features()
+    print(lscore)
+    nbscore0 = naive_bayes_features()[0]
+    nbscore1 = naive_bayes_features()[1]
+    print(nbscore0)
+    print(nbscore1)
+    rfc, rfcscore = get_best_rfc()
+    print(rfcscore)
     print(rfc.feature_importances_)
+    plt.bar(i, rfc.feature_importances_)
+    plt.title("Feature Importances: " + st)
+    plt.xticks(rotation=65, fontsize=6)
+    plt.show()
+    scores = [lscore, nbscore0, nbscore1, rfcscore]
+    scorestrings = ["Logistic", "Gaussian NB", "Bernoulli NB", "Random Forest"]
+    plt.bar(scorestrings, scores)
+    plt.title("Model Accuracy: " + st)
+    plt.show()
     print("_________")
 
 run(True)
